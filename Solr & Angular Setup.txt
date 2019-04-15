@@ -1,0 +1,103 @@
+Solr setup:
+1. Get Solr up and run.
+   Goto to http://lucene.apache.org/solr/downloads.html to download solr-8.0.0.zip, unzip it into C:\solr, and start/stop it using following commands.
+	 solr.cmd start (start Solr at default port 8983)
+	 solr.cmd status
+	 solr.cmd stop -all
+2. Create a new core named wiki.
+	 We use following command to create a core named wiki:
+	 solr create -c wiki
+	 Goto http://localhost:8983/solr/#/~cores to see the new created core wiki.
+	 Download enwiki-latest-pages-articles14.xml-p7697599p7744799.bz2 from https://dumps.wikimedia.org/enwiki/latest/
+	 Unzip enwiki-latest-pages-articles14.xml-p7697599p7744799.bz2, rename the unzipped file to enwiki-latest-pages-articles14.xml, and put it into C:\solr\server\solr\wiki\input
+3. Configure, update index, and query data.
+	 In C:\solr\server\solr\wiki\conf\solrconfig.xml:
+	 1. At line 87 add <lib dir="${solr.install.dir:../../../..}/dist/" regex="solr-dataimporthandler-.*\.jar" />.
+	 2. At line 1003 add following configuration:
+		<!-- A request handler for demonstrating the wiki component -->
+		<requestHandler name="/dihupdate" class="org.apache.solr.handler.dataimport.DataImportHandler" startup="lazy">
+		<lst name="defaults">
+			<str name="config">data-config.xml</str>
+		</lst>
+		</requestHandler>
+	 3. At line 1140 add <schemaFactory class="ClassicIndexSchemaFactory" />.
+	 4. At line 1192, switch update.autoCreateFields from true to false.
+	 5. Create data-config.xml in C:\solr\server\solr\wiki\conf\ with following configuration. Check the Solr Reference Guide for detailed usage guide-https://lucene.apache.org/solr/guide/uploading-structured-data-store-data-with-the-data-import-handler.html.
+		<dataConfig>
+			<dataSource type="FileDataSource" encoding="UTF-8"/> 
+			<document> 
+				<entity name="page" 
+					processor="XPathEntityProcessor"
+					stream="true"
+					forEach="/mediawiki/page/"
+					url="C:\solr\server\solr\wiki\input\enwiki-latest-pages-articles14.xml"
+					transformer="RegexTransformer,DateFormatTransformer"
+					> 
+					<field column="id" xpath="/mediawiki/page/id" />
+					<field column="title" xpath="/mediawiki/page/title" />
+					<field column="revision" xpath="/mediawiki/page/revision/id" />
+					<field column="user" xpath="/mediawiki/page/revision/contributor/username" />
+					<field column="userId" xpath="/mediawiki/page/revision/contributor/id" />
+					<field column="text" xpath="/mediawiki/page/revision/text" />
+					<field column="timestamp" xpath="/mediawiki/page/revision/timestamp" dateTimeFormat="yyyy-MM-dd'T'hh:mm:ss'Z'"/>
+					<field column="$skipDoc" regex="^#REDIRECT.*" replaceWith="true" sourceColName="text" />
+				</entity>
+			</document>
+		</dataConfig>
+	6. In C:\solr\server\solr\wiki\conf\ rename "managed-schema" to "schema.xml".
+	7. In schema.xml, remove all <field/> configuration from line 113 to 123, and then at line 113 add following configuration:
+		<field name="_version_" type="plong" indexed="true" stored="true" />
+		<field name="id" type="string" indexed="true" stored="true" required="true"/>
+		<field name="title" type="string" indexed="true" stored="true" />
+		<field name="text" type="text_general" indexed="true" stored="false" multiValued="true"/>
+	8. Restart Solr using "solr stop -all" and "solr start".
+(Started and finished here at night of Friday 04/12/2019)
+	9. Import data by accessing http://localhost:8983/solr/wiki/dihupdate?command=full-import, then check status by accessing http://localhost:8983/solr/wiki/dihupdate.
+	10. In C:\solr\server\solr-webapp\webapp\WEB-INF\web.xml, add following configuration after <web-app> tag to enable CORS:
+		<filter>
+			<filter-name>cross-origin</filter-name>
+			<filter-class>org.eclipse.jetty.servlets.CrossOriginFilter</filter-class>
+			<init-param>
+				<param-name>allowedOrigins</param-name>
+				<param-value>*</param-value>
+			</init-param>
+			<init-param>
+				<param-name>allowedMethods</param-name>
+				<param-value>GET,POST,DELETE,PUT,HEAD,OPTIONS</param-value>
+			</init-param>
+			<init-param>
+				<param-name>allowedHeaders</param-name>
+				<param-value>origin, content-type, cache-control, accept, options, authorization, x-requested-with</param-value>
+			</init-param>
+			<init-param>
+				<param-name>supportsCredentials</param-name>
+				<param-value>true</param-value>
+			</init-param>
+			<init-param>
+				<param-name>chainPreflight</param-name>
+				<param-value>false</param-value>
+			</init-param>
+		</filter>
+
+		<filter-mapping>
+			<filter-name>cross-origin</filter-name>
+			<url-pattern>/*</url-pattern>
+		</filter-mapping>
+	11. Test query and fix some configurations accordingly.
+(Finished here at noon of Saturday 04/13/2019)
+	
+Angular & Angular Material setup and development:
+1. Get Node.js and Angular up and run.
+   Go to https://nodejs.org/en/download/ to download Node.js, install it and verify the installation by running commands "node -v" and "npm -v".
+   Install angular-cli by running "npm install --global @angular/cli@7.2.2" in a CMD window.
+   Open a CMD window, go to a folder where you want to create the Angular wiki project and run "ng new wiki" to create the  project.
+   In the same CMD window, go to the wiki folder, and run following commands:
+	 npm install --save @angular/material
+	 npm install --save @angular/cdk
+	 npm install --save ajv@^6.9.1
+	 npm install --save @angular/animations
+     npm i -s @angular/flex-layout
+     npm install hammerjs
+	 npm install ngx-json-viewer
+2. Develop an Angular front end to query wiki through Solr back end.
+(Finished here at afternoon of Sunday 04/14/2019)
